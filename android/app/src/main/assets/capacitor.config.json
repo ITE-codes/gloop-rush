@@ -1,0 +1,8 @@
+{
+	"appId": "com.gloopgames.glooprush",
+	"appName": "Gloop Rush",
+	"webDir": "www",
+	"android": {
+		"backgroundColor": "#c4b2ff"
+	}
+}

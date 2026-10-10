@@ -1,0 +1,1358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#c4b2ff">
+<title>Gloop Rush</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap">
+<style>
+/* Layout: one full-bleed play field; HUD floats on top; menus are chunky ink-outlined cartoon cards over the live field. Single deliberate look (cartoon worlds), not themed. */
+:root{
+  --sky-top:#c4b2ff;
+  --sky-bot:#ffdcbc;
+  --ink:#2b1d3a;
+  --paper:#fffaf2;
+  --pop:#ff5a7a;
+  --mint:#3fdcbf;
+  --gold:#ffc93c;
+  --lime:#8be04e;
+  --f-display:'Lilita One','Arial Rounded MT Bold','Trebuchet MS',system-ui,sans-serif;
+  --f-body:'Nunito',ui-rounded,'Segoe UI',system-ui,sans-serif;
+  color-scheme:light;
+}
+[hidden]{display:none!important}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%;margin:0;padding:0}
+body{margin:0;background:var(--sky-bot);color:var(--ink);font-family:var(--f-body);overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:none;-webkit-tap-highlight-color:transparent}
+#app{position:relative;height:100%;overflow:hidden;background:linear-gradient(var(--sky-top),var(--sky-bot))}
+canvas#c{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+
+.hud{position:absolute;left:0;right:0;top:0;display:grid;grid-template-columns:1fr auto 1fr;align-items:start;padding:12px 16px;gap:8px;pointer-events:none}
+.hud .left{justify-self:start}
+.hud .right{justify-self:end;display:flex;gap:8px}
+.pill{display:inline-flex;align-items:center;gap:6px;background:var(--paper);border:3px solid var(--ink);border-radius:999px;padding:3px 12px 3px 5px;font-weight:900;font-size:17px;box-shadow:0 3px 0 var(--ink);font-variant-numeric:tabular-nums}
+.coin{width:18px;height:18px;border-radius:50%;background:var(--gold);border:2.5px solid var(--ink);box-sizing:border-box;flex:none;position:relative;display:inline-block}
+.coin::after{content:"";position:absolute;left:3px;top:2px;width:5px;height:5px;border-radius:50%;background:var(--paper);opacity:.8}
+.center{display:flex;flex-direction:column;align-items:center;gap:6px}
+.score{font-family:var(--f-display);font-size:54px;color:var(--paper);-webkit-text-stroke:3px var(--ink);paint-order:stroke fill;text-shadow:0 4px 0 var(--ink);line-height:1;font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.wpill{display:flex;align-items:center;gap:7px;background:var(--paper);border:2.5px solid var(--ink);border-radius:999px;padding:2px 8px 2px 10px;font-weight:900;font-size:12px;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+.wbar{width:62px;height:9px;border:2px solid var(--ink);border-radius:99px;overflow:hidden;background:#eadff7}
+.wbar i{display:block;height:100%;width:0;background:var(--mint);transition:width .2s}
+.chips{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:62vw}
+.chip{font-weight:900;font-size:12px;letter-spacing:.08em;text-transform:uppercase;border:2.5px solid var(--ink);border-radius:999px;padding:2px 9px;background:var(--paper);font-variant-numeric:tabular-nums}
+.chip.shield{background:#9fd8ff}.chip.magnet{background:#ffb3c6}.chip.slow{background:#d9ffa8}.chip.tiny{background:#ffe08a}.chip.double{background:#c7b3ff}.chip.combo{background:var(--gold)}
+.chip.warn{animation:none;opacity:.6}
+.icon-btn{pointer-events:auto;width:42px;height:42px;display:grid;place-items:center;background:var(--paper);border:3px solid var(--ink);border-radius:14px;box-shadow:0 3px 0 var(--ink);cursor:pointer;padding:0;color:var(--ink);touch-action:manipulation}
+.icon-btn:active{transform:translateY(3px);box-shadow:0 0 0 var(--ink)}
+.icon-btn svg{width:22px;height:22px}
+.icon-btn:focus-visible,.btn:focus-visible{outline:3px dashed var(--ink);outline-offset:3px}
+
+.overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;gap:16px}
+.dim{background:rgba(43,29,58,.38)}
+.menu{justify-content:space-between;padding-block:calc(env(safe-area-inset-top,0px) + 9vh) calc(env(safe-area-inset-bottom,0px) + 7vh)}
+.logo{font-family:var(--f-display);font-weight:400;font-size:clamp(56px,17vw,92px);line-height:.86;margin:0;text-align:center;-webkit-text-stroke:5px var(--ink);paint-order:stroke fill;text-shadow:0 7px 0 var(--ink);transform:rotate(-4deg)}
+.logo .a{color:var(--lime);display:block}
+.logo .b{color:var(--pop);display:block;margin-left:.5em}
+.tag{font-weight:800;font-size:16px;text-align:center;max-width:28ch;background:var(--paper);border:3px solid var(--ink);border-radius:14px;padding:6px 14px;box-shadow:0 3px 0 var(--ink);transform:rotate(1.5deg);text-wrap:balance}
+.stack{display:flex;flex-direction:column;align-items:center;gap:12px;width:min(320px,100%)}
+.row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;width:100%}
+.best-line{font-weight:900;font-size:15px;letter-spacing:.06em;text-transform:uppercase;background:var(--paper);border:3px solid var(--ink);border-radius:999px;padding:3px 14px}
+
+.btn{font-family:var(--f-display);font-weight:400;font-size:22px;letter-spacing:.02em;color:var(--ink);background:var(--paper);border:3px solid var(--ink);border-radius:18px;padding:11px 22px;box-shadow:0 5px 0 var(--ink);cursor:pointer;transition:transform .06s,box-shadow .06s;touch-action:manipulation;flex:1 1 auto;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn:active{transform:translateY(4px);box-shadow:0 1px 0 var(--ink)}
+.btn.play{font-size:36px;padding:14px 20px;background:var(--mint);width:100%}
+.btn.gold{background:var(--gold)}
+.btn.pink{background:var(--pop);color:var(--paper);-webkit-text-stroke:1.5px var(--ink);paint-order:stroke fill}
+.btn[disabled]{opacity:.45;pointer-events:none}
+@media (prefers-reduced-motion:no-preference){
+  .btn.play{animation:bob 1.4s ease-in-out infinite}
+  @keyframes bob{50%{transform:translateY(-4px) rotate(-1deg)}}
+  .btn.play:active{animation:none}
+}
+
+.card{width:min(360px,100%);background:var(--paper);border:3px solid var(--ink);border-radius:26px;box-shadow:0 8px 0 var(--ink);padding:22px 18px 20px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;box-sizing:border-box;max-height:100%;overflow:auto}
+.card h2{font-family:var(--f-display);font-weight:400;font-size:44px;margin:0;line-height:1;color:var(--pop);-webkit-text-stroke:3px var(--ink);paint-order:stroke fill;text-shadow:0 4px 0 var(--ink)}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%}
+.stat{border:3px solid var(--ink);border-radius:16px;padding:8px 6px;background:#f3ecff;min-width:0}
+.stat .k{font-size:11px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;opacity:.75}
+.stat .v{font-family:var(--f-display);font-size:32px;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat .v.sm{font-size:18px;line-height:1.3;padding-top:4px}
+.newbest{font-family:var(--f-display);font-size:18px;background:var(--gold);border:3px solid var(--ink);border-radius:999px;padding:3px 14px;transform:rotate(-3deg)}
+.earned{font-weight:900;display:flex;align-items:center;gap:6px}
+
+.shop-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%}
+.skin{border:3px solid var(--ink);border-radius:16px;background:#f3ecff;padding:6px 4px 8px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;font:inherit;color:var(--ink);min-width:0}
+.skin canvas{width:64px;height:64px}
+.skin .nm{font-weight:900;font-size:13px}
+.skin .pr{font-weight:900;font-size:12px;display:flex;align-items:center;gap:4px;font-variant-numeric:tabular-nums}
+.skin .pr .coin{width:14px;height:14px;border-width:2px}
+.skin.on{background:var(--lime)}
+.skin.cant .pr{color:#b0306b}
+.skin:focus-visible{outline:3px dashed var(--ink);outline-offset:2px}
+
+.hint{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 14vh);transform:translateX(-50%);font-family:var(--f-display);font-size:24px;color:var(--paper);-webkit-text-stroke:2.5px var(--ink);paint-order:stroke fill;text-shadow:0 3px 0 var(--ink);pointer-events:none;white-space:nowrap}
+@media (prefers-reduced-motion:no-preference){.hint{animation:sway 1.2s ease-in-out infinite}@keyframes sway{0%,100%{transform:translateX(-62%)}50%{transform:translateX(-38%)}}}
+</style>
+<style>body{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+</head>
+<body>
+
+<div id="app">
+  <canvas id="c"></canvas>
+
+  <div class="hud" id="hud" hidden>
+    <div class="left"><span class="pill"><span class="coin"></span><span id="hudCoins">0</span></span></div>
+    <div class="center">
+      <div class="score" id="hudScore">0</div>
+      <div class="wpill"><span id="wName">World 1</span><span class="wbar"><i id="wBar"></i></span></div>
+      <div class="chips" id="chips"></div>
+    </div>
+    <div class="right">
+      <button class="icon-btn" id="pauseBtn" aria-label="Pause"><svg viewBox="0 0 24 24"><rect x="5" y="4" width="5" height="16" rx="1.5" fill="currentColor"/><rect x="14" y="4" width="5" height="16" rx="1.5" fill="currentColor"/></svg></button>
+    </div>
+  </div>
+
+  <div class="hint" id="hint" hidden>Drag anywhere</div>
+
+  <div class="overlay menu" id="menu">
+    <div class="stack">
+      <h1 class="logo"><span class="a">Gloop</span><span class="b">Rush</span></h1>
+      <div class="tag">Drag to dodge. Grab gems to reach new worlds. Don't get popped.</div>
+    </div>
+    <div class="stack">
+      <div class="best-line" id="menuBest">Best 0</div>
+      <button class="btn play" id="playBtn">Play</button>
+      <div class="row">
+        <button class="btn gold" id="shopBtn"><span class="coin"></span><span id="menuCoins">0</span> Skins</button>
+        <button class="icon-btn" id="muteBtn" aria-label="Sound" style="width:58px;height:auto;border-radius:18px;box-shadow:0 5px 0 var(--ink)"></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay dim" id="over" hidden>
+    <div class="card">
+      <h2>Popped!</h2>
+      <div class="newbest" id="newBest" hidden>New best!</div>
+      <div class="stats">
+        <div class="stat"><div class="k">Score</div><div class="v" id="ovScore">0</div></div>
+        <div class="stat"><div class="k">Best</div><div class="v" id="ovBest">0</div></div>
+        <div class="stat"><div class="k">World</div><div class="v sm" id="ovWorld">1</div></div>
+        <div class="stat"><div class="k">Gems</div><div class="v" id="ovCoins">0</div></div>
+      </div>
+      <button class="btn play" id="againBtn">Play again</button>
+      <button class="btn pink" id="reviveBtn" style="width:100%">Revive · <span class="coin"></span> 25</button>
+      <div class="row">
+        <button class="btn gold" id="ovShopBtn">Skins</button>
+        <button class="btn" id="ovMenuBtn">Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay dim" id="pause" hidden>
+    <div class="card">
+      <h2 style="color:var(--mint)">Paused</h2>
+      <button class="btn play" id="resumeBtn">Resume</button>
+      <button class="btn" id="quitBtn" style="width:100%">Quit to menu</button>
+    </div>
+  </div>
+
+  <div class="overlay dim" id="shop" hidden>
+    <div class="card">
+      <h2 style="color:var(--gold)">Skins</h2>
+      <span class="pill"><span class="coin"></span><span id="shopCoins">0</span></span>
+      <div class="shop-grid" id="shopGrid"></div>
+      <button class="btn play" id="shopBack" style="font-size:26px">Done</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const TAU = Math.PI * 2;
+const $ = id => document.getElementById(id);
+const rand = (a, b) => a + Math.random() * (b - a);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const FONT = "'Lilita One','Arial Rounded MT Bold','Trebuchet MS',sans-serif";
+
+const C = { ink: '#2b1d3a', paper: '#fffaf2', pop: '#ff5a7a', mint: '#3fdcbf', mint2: '#1fae95', gold: '#ffc93c', steel: '#3a3a4c', steel2: '#5d5d75' };
+
+// ---------- Worlds ----------
+const WORLDS = [
+  { name: 'Candy Sky',   g: ['#c4b2ff', '#f2c6e0', '#ffdcbc'], spike: '#4a2f6b', spike2: '#6a4592', wall: '#4a2f6b', stripe: '#ff5a7a', dc: 'rgba(255,250,242,.6)',  dc2: 'rgba(255,250,242,.32)', decor: [['cloud', 7], ['dot', 6]] },
+  { name: 'Bubble Bay',  g: ['#2f8fc4', '#5cc0e0', '#bdf0e4'], spike: '#e0473f', spike2: '#ff7566', wall: '#17436b', stripe: '#ffc93c', dc: 'rgba(255,255,255,.6)',  dc2: 'rgba(16,60,100,.28)',   decor: [['bubble', 16], ['fish', 4], ['weed', 4]] },
+  { name: 'Lava Caves',  g: ['#2a0d1c', '#6e1b1b', '#ff7a3d'], spike: '#6a7a8e', spike2: '#93a5bb', wall: '#3a3a4a', stripe: '#ff9a3d', dc: 'rgba(255,170,60,.95)', dc2: 'rgba(20,6,12,.5)',      decor: [['ember', 18], ['rock', 4]] },
+  { name: 'Frost Peaks', g: ['#8ec8ff', '#d3ebff', '#f7fbff'], spike: '#2d5f9a', spike2: '#4f86c6', wall: '#2d5f9a', stripe: '#8be8ff', dc: 'rgba(255,255,255,.95)', dc2: 'rgba(110,160,215,.35)', decor: [['snow', 24], ['peak', 4]] },
+  { name: 'Star Drift',  g: ['#0d1033', '#291e5a', '#5b2f7d'], spike: '#ff5a7a', spike2: '#ff8ea6', wall: '#7b5cff', stripe: '#ffc93c', dc: 'rgba(255,250,230,.9)',  dc2: 'rgba(255,255,255,.16)', decor: [['star', 32], ['planet', 2]] },
+  { name: 'Jungle Jam',  g: ['#5fbf63', '#b5e27a', '#fff1a6'], spike: '#7a3b1f', spike2: '#a65a2e', wall: '#2f5f1a', stripe: '#ffc93c', dc: 'rgba(50,120,40,.8)',    dc2: 'rgba(30,85,25,.35)',    decor: [['leaf', 13], ['bush', 4]] },
+];
+const GEMS_PER_WORLD = 25;
+
+const SKINS = [
+  { name: 'Goo',       body: '#8be04e', shade: '#5fb52c', acc: 'none',    cost: 0 },
+  { name: 'Bubblegum', body: '#ff9fcf', shade: '#e2649f', acc: 'bow',     cost: 40 },
+  { name: 'Blueberry', body: '#74baff', shade: '#3f86d6', acc: 'antenna', cost: 90 },
+  { name: 'Tangerine', body: '#ffad57', shade: '#e0791c', acc: 'leaf',    cost: 160 },
+  { name: 'Imp',       body: '#b896ff', shade: '#8a5ee0', acc: 'horns',   cost: 260 },
+  { name: 'Royal',     body: '#ffdb5c', shade: '#e3ad18', acc: 'crown',   cost: 450 },
+];
+const POWERS = {
+  shield: { col: '#9fd8ff', label: 'Shield!',   w: 1.2 },
+  magnet: { col: '#ffb3c6', label: 'Magnet!',   w: 1 },
+  slow:   { col: '#d9ffa8', label: 'Slow-mo!',  w: .8 },
+  tiny:   { col: '#ffe08a', label: 'Tiny!',     w: .8 },
+  double: { col: '#c7b3ff', label: 'Double!',   w: .8 },
+  blast:  { col: '#ffb36b', label: 'Blast!',    w: .7 },
+};
+const DUR = { shield: 15, magnet: 8, slow: 5, tiny: 8, double: 10 };
+const DESTROYABLE = new Set(['spike', 'chaser', 'ball', 'mine', 'laser']);
+const REVIVE_COST = 25;
+
+// ---------- Storage ----------
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('gloop_' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('gloop_' + k, JSON.stringify(v)); } catch (e) {} }
+};
+let best = store.get('best', 0);
+let bestWorld = store.get('bestWorld', 1);
+let wallet = store.get('coins', 0);
+let owned = store.get('owned', [0]);
+let skinIdx = store.get('skin', 0);
+let muted = store.get('muted', false);
+if (!owned.includes(skinIdx)) skinIdx = 0;
+
+// ---------- Audio ----------
+let AC = null;
+function audioOn() {
+  if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  if (AC && AC.state === 'suspended') AC.resume();
+}
+function tone(f, d, type = 'sine', v = .12, f2, delay = 0) {
+  if (muted || !AC) return;
+  const t0 = AC.currentTime + delay;
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t0);
+  if (f2) o.frequency.exponentialRampToValueAtTime(f2, t0 + d);
+  g.gain.setValueAtTime(v, t0); g.gain.exponentialRampToValueAtTime(.0001, t0 + d);
+  o.connect(g).connect(AC.destination); o.start(t0); o.stop(t0 + d + .03);
+}
+const sfx = {
+  gem: c => tone(620 + c * 120, .1, 'triangle', .13, 980 + c * 140),
+  wall: () => tone(420, .09, 'square', .045, 640),
+  close: () => tone(900, .07, 'sine', .08, 1400),
+  power: () => { tone(320, .22, 'sawtooth', .06, 960); tone(640, .2, 'triangle', .08, 1280, .08); },
+  smash: () => tone(260, .16, 'square', .08, 90),
+  die: () => { tone(300, .45, 'sawtooth', .14, 50); tone(140, .3, 'square', .08, 40, .05); },
+  mile: () => [523, 659, 784, 1046].forEach((f, i) => tone(f, .12, 'triangle', .1, null, i * .07)),
+  world: () => [392, 523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, .16, 'triangle', .1, null, i * .08)),
+  chest: () => [880, 1108, 1318, 1760, 1318, 1760].forEach((f, i) => tone(f, .1, 'square', .05, null, i * .06)),
+  cannon: () => { tone(150, .25, 'square', .12, 50); },
+  laserWarn: () => tone(1200, .05, 'square', .03),
+  laser: () => tone(180, .4, 'sawtooth', .07, 900),
+  boom: () => { tone(120, .4, 'sawtooth', .13, 40); },
+  beep: () => tone(1500, .04, 'square', .04),
+  tap: () => tone(700, .05, 'triangle', .07, 900),
+  buy: () => [660, 880, 1320].forEach((f, i) => tone(f, .1, 'triangle', .1, null, i * .06)),
+};
+function buzz(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} }
+
+// ---------- Canvas ----------
+const cvs = $('c'), ctx = cvs.getContext('2d');
+let W = 0, H = 0, S = 1, DPR = 1, grads = [];
+function resize() {
+  const r = cvs.getBoundingClientRect();
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  W = r.width; H = r.height;
+  cvs.width = Math.round(W * DPR); cvs.height = Math.round(H * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  S = clamp(Math.min(W / 400, H / 720), .75, 1.6);
+  player.r = 21 * S;
+  grads = WORLDS.map(w => { const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, w.g[0]); g.addColorStop(.6, w.g[1]); g.addColorStop(1, w.g[2]); return g; });
+  decor = []; addDecor(world, true);
+  clampTarget();
+}
+
+// ---------- State ----------
+const player = { x: 200, y: 500, tx: 200, ty: 500, vx: 0, vy: 0, r: 21, scale: 1, blink: 0, inv: 0 };
+let mode = 'menu', paused = false, time = 0;
+let t = 0, speed = 0, dist = 0, bonus = 0, runCoins = 0, combo = 0, comboT = 0;
+let fx = { shield: 0, magnet: 0, slow: 0, tiny: 0, double: 0 };
+let revived = false, lastRunCoins = 0;
+let spawnT = 0, gemT = 0, powT = 0, chestT = 0, deathT = 0, nextMile = 100, moved = 0, shake = 0;
+let world = 0, prevWorld = 0, worldBlend = 1, worldGems = 0;
+let hazards = [], gems = [], powers = [], chests = [], parts = [], texts = [], decor = [];
+const WD = () => WORLDS[world % WORLDS.length];
+const mult = () => fx.double > 0 ? 2 : 1;
+const PR = () => player.r * player.scale;
+
+function score() { return Math.floor(dist / (46 * S)) + bonus; }
+function clampTarget() {
+  const r = PR();
+  player.tx = clamp(player.tx, r + 6, W - r - 6);
+  player.ty = clamp(player.ty, H * .28, H - r - 18);
+}
+
+// ---------- Scenery ----------
+function newDecor(kind, initial) {
+  const d = { kind, x: rand(0, W), y: 0, r: 10 * S, p: .3, ph: rand(0, TAU), vx: 0, old: false };
+  const side = () => Math.random() < .5 ? rand(-20, 20) * S : W + rand(-20, 20) * S;
+  switch (kind) {
+    case 'cloud': d.r = rand(24, 60) * S; d.p = rand(.15, .45); break;
+    case 'dot': d.r = rand(3, 7) * S; d.p = rand(.2, .4); break;
+    case 'bubble': d.r = rand(3, 10) * S; d.p = -rand(.12, .3); break;
+    case 'fish': d.r = rand(9, 15) * S; d.p = .12; d.vx = (Math.random() < .5 ? -1 : 1) * rand(30, 70) * S; break;
+    case 'weed': d.x = side(); d.r = rand(50, 90) * S; d.p = .3; break;
+    case 'ember': d.r = rand(1.5, 4) * S; d.p = -rand(.2, .5); break;
+    case 'rock': d.x = side(); d.r = rand(40, 75) * S; d.p = .3; break;
+    case 'snow': d.r = rand(1.5, 4) * S; d.p = rand(.25, .55); break;
+    case 'peak': d.x = side(); d.r = rand(60, 110) * S; d.p = .16; break;
+    case 'star': d.r = rand(.8, 2.2) * S; d.p = rand(.04, .14); break;
+    case 'planet': d.r = rand(16, 34) * S; d.p = .07; d.hue = ['#ff8ea6', '#ffc93c', '#7fe3ff'][(Math.random() * 3) | 0]; break;
+    case 'leaf': d.r = rand(6, 11) * S; d.p = rand(.3, .5); break;
+    case 'bush': d.x = side(); d.r = rand(40, 70) * S; d.p = .3; break;
+  }
+  const rising = d.p < 0;
+  if (initial) d.y = rand(0, H);
+  else d.y = rising ? H + rand(20, H * .8) : -rand(d.r + 20, H * .8 + d.r);
+  return d;
+}
+function addDecor(wi, initial) {
+  for (const [k, n] of WORLDS[wi % WORLDS.length].decor) for (let i = 0; i < n; i++) decor.push(newDecor(k, initial));
+}
+function updateDecor(dtw, sp) {
+  for (const d of decor) {
+    if (d.p >= 0) d.y += sp * d.p * dtw; else d.y += (sp * d.p - 30 * S) * dtw;
+    d.ph += dtw;
+    if (d.kind === 'fish') { d.x += d.vx * dtw; if (d.x < -40) d.x = W + 40; if (d.x > W + 40) d.x = -40; }
+    if (d.kind === 'snow' || d.kind === 'leaf' || d.kind === 'ember') d.x += Math.sin(d.ph * 2) * 18 * S * dtw;
+    const out = d.p >= 0 ? d.y - d.r * 2 > H : d.y + d.r < 0;
+    if (out) {
+      if (d.old) d.dead = true;
+      else { const n = newDecor(d.kind, false); Object.assign(d, n); }
+    }
+  }
+  decor = decor.filter(d => !d.dead);
+}
+function drawDecor() {
+  const w = WD();
+  for (const d of decor) {
+    const ww = d.old ? WORLDS[prevWorld % WORLDS.length] : w;
+    ctx.save(); ctx.translate(d.x, d.y);
+    switch (d.kind) {
+      case 'cloud':
+        ctx.fillStyle = ww.dc; ctx.beginPath();
+        ctx.arc(0, 0, d.r * .55, 0, TAU); ctx.arc(-d.r * .55, d.r * .15, d.r * .4, 0, TAU); ctx.arc(d.r * .55, d.r * .12, d.r * .42, 0, TAU); ctx.fill(); break;
+      case 'dot': case 'snow':
+        ctx.fillStyle = ww.dc; ctx.beginPath(); ctx.arc(0, 0, d.r, 0, TAU); ctx.fill(); break;
+      case 'bubble':
+        ctx.strokeStyle = ww.dc; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, d.r, 0, TAU); ctx.stroke();
+        ctx.fillStyle = ww.dc; ctx.beginPath(); ctx.arc(-d.r * .35, -d.r * .35, d.r * .25, 0, TAU); ctx.fill(); break;
+      case 'fish':
+        ctx.scale(d.vx > 0 ? 1 : -1, 1); ctx.fillStyle = ww.dc2; ctx.beginPath();
+        ctx.ellipse(0, 0, d.r, d.r * .55, 0, 0, TAU); ctx.moveTo(-d.r * .8, 0); ctx.lineTo(-d.r * 1.5, -d.r * .5); ctx.lineTo(-d.r * 1.5, d.r * .5); ctx.closePath(); ctx.fill(); break;
+      case 'weed':
+        ctx.strokeStyle = ww.dc2; ctx.lineWidth = 8 * S; ctx.lineCap = 'round';
+        for (let k = -1; k <= 1; k++) { ctx.beginPath(); ctx.moveTo(k * 14 * S, 0); for (let j = 1; j <= 6; j++) ctx.lineTo(k * 14 * S + Math.sin(d.ph * 2 + j + k) * 8 * S, -j * d.r / 6 * 1.6); ctx.stroke(); }
+        break;
+      case 'ember':
+        ctx.globalAlpha = .5 + .5 * Math.sin(d.ph * 8); ctx.fillStyle = ww.dc; ctx.beginPath(); ctx.arc(0, 0, d.r, 0, TAU); ctx.fill(); break;
+      case 'rock': case 'bush':
+        ctx.fillStyle = ww.dc2; ctx.beginPath();
+        if (d.kind === 'rock') { for (let i = 0; i < 7; i++) { const a = i / 7 * TAU, rr = d.r * (.75 + ((i * 37) % 10) / 30); ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr * 1.3); } ctx.closePath(); }
+        else { ctx.arc(0, 0, d.r * .6, 0, TAU); ctx.arc(-d.r * .45, d.r * .3, d.r * .45, 0, TAU); ctx.arc(d.r * .45, d.r * .3, d.r * .45, 0, TAU); ctx.arc(0, -d.r * .5, d.r * .4, 0, TAU); }
+        ctx.fill(); break;
+      case 'peak':
+        ctx.fillStyle = ww.dc2; ctx.beginPath(); ctx.moveTo(-d.r, d.r * .6); ctx.lineTo(0, -d.r); ctx.lineTo(d.r, d.r * .6); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.beginPath(); ctx.moveTo(-d.r * .3, -d.r * .45); ctx.lineTo(0, -d.r); ctx.lineTo(d.r * .3, -d.r * .45); ctx.lineTo(0, -d.r * .55); ctx.closePath(); ctx.fill(); break;
+      case 'star':
+        ctx.globalAlpha = .4 + .6 * Math.abs(Math.sin(d.ph * 1.5)); ctx.fillStyle = ww.dc; ctx.beginPath(); ctx.arc(0, 0, d.r, 0, TAU); ctx.fill(); break;
+      case 'planet':
+        ctx.globalAlpha = .55; ctx.fillStyle = d.hue; ctx.beginPath(); ctx.arc(0, 0, d.r, 0, TAU); ctx.fill();
+        ctx.strokeStyle = d.hue; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(0, 0, d.r * 1.7, d.r * .45, -.35, 0, TAU); ctx.stroke(); break;
+      case 'leaf':
+        ctx.rotate(d.ph * 1.3); ctx.fillStyle = ww.dc; ctx.beginPath(); ctx.moveTo(-d.r, 0); ctx.quadraticCurveTo(0, -d.r * .9, d.r, 0); ctx.quadraticCurveTo(0, d.r * .9, -d.r, 0); ctx.fill(); break;
+    }
+    ctx.restore();
+  }
+}
+
+// ---------- Spawning ----------
+function spikeSize() {
+  const r = Math.random();
+  if (t > 15 && r < .12) return { r: rand(44, 58) * S, vm: rand(.6, .78) };
+  if (r < .32) return { r: rand(29, 38) * S, vm: rand(.8, 1) };
+  if (r < .72) return { r: rand(17, 25) * S, vm: rand(.9, 1.2) };
+  return { r: rand(10, 14) * S, vm: rand(1.15, 1.4) };
+}
+function addSpike(x, r, vm = 1, wobA = 0) {
+  hazards.push({ type: 'spike', x: clamp(x, r * .6, W - r * .6), bx: x, y: -r - 20, r, vm, ang: rand(0, TAU), spin: rand(-2, 2), wobA, wobF: rand(1.6, 2.6), ph: rand(0, TAU), near: false, done: false });
+}
+const count = type => hazards.reduce((n, h) => n + (h.type === type ? 1 : 0), 0);
+
+const PATTERNS = {
+  spike(diff) {
+    const s = spikeSize();
+    const x = Math.random() < .35 ? player.x + rand(-30, 30) * S : rand(0, W);
+    addSpike(x, s.r, s.vm * (1 + diff * .2));
+    if (s.r > 40 * S) spawnT = Math.max(spawnT, .7);
+  },
+  wobble() { const r = rand(16, 26) * S; addSpike(rand(W * .25, W * .75), r, rand(.9, 1.1), rand(W * .12, W * .25)); },
+  triple() { const r = rand(11, 15) * S, cx = rand(60 * S, W - 60 * S); for (let i = -1; i <= 1; i++) addSpike(cx + i * 44 * S, r, rand(1.05, 1.25)); },
+  pair() {
+    const r = rand(17, 22) * S, gap = Math.max(PR() * 3.6, W * .22), cx = rand(gap / 2 + r, W - gap / 2 - r);
+    addSpike(cx - gap / 2 - r * .6, r); addSpike(cx + gap / 2 + r * .6, r);
+  },
+  wall(diff, slide) {
+    const gw = lerp(W * .56, Math.max(player.r * 4.3, W * .3), diff);
+    const gx = rand(14, W - gw - 14);
+    hazards.push({ type: 'wall', y: -40 * S, h: 22 * S, gx, bgx: gx, gw, vm: 1, passed: false, slide: slide ? rand(W * .1, W * .2) : 0, ph: rand(0, TAU) });
+    for (let i = 0; i < 3; i++) gems.push({ x: gx + gw / 2, y: -40 * S - 70 * S - i * 34 * S, ph: rand(0, TAU) });
+    spawnT = Math.max(spawnT, .95 - diff * .25);
+  },
+  slidewall(diff) { PATTERNS.wall(diff, true); },
+  block() {
+    const s = rand(40, 70) * S;
+    hazards.push({ type: 'block', x: rand(s / 2 + 8, W - s / 2 - 8), y: -s, s, vm: 1 });
+    spawnT = Math.max(spawnT, .6);
+  },
+  spinner() {
+    const L = rand(58, 92) * S;
+    hazards.push({ type: 'spinner', x: rand(L * .5, W - L * .5), y: -L - 20, L, a: rand(0, TAU), w: (Math.random() < .5 ? -1 : 1) * rand(1.3, 2.3), th: 14 * S, vm: 1 });
+    spawnT = Math.max(spawnT, .9);
+  },
+  saw() {
+    const len = rand(W * .4, W * .75), x1 = rand(24 * S, W - len - 24 * S);
+    hazards.push({ type: 'saw', x1, x2: x1 + len, x: x1, y: -30 * S, r: 19 * S, ph: rand(0, TAU), w: rand(1.4, 2.4), ang: 0, vm: 1 });
+    spawnT = Math.max(spawnT, .8);
+  },
+  mine() {
+    hazards.push({ type: 'mine', x: rand(40 * S, W - 40 * S), y: -20 * S, r: 15 * S, st: 'idle', tm: 0, vm: 1, ph: 0 });
+  },
+  chaser(diff) {
+    if (count('chaser') >= 2) return PATTERNS.spike(diff);
+    hazards.push({ type: 'chaser', x: rand(30, W - 30), y: -24 * S, vx: 0, vy: 120 * S, r: 15 * S, life: 4 + diff * 1.5, ms: H * (.27 + .12 * diff), flap: 0, escaped: false });
+  },
+  cannon() {
+    if (count('cannon') >= 1) return PATTERNS.block();
+    const side = Math.random() < .5 ? -1 : 1;
+    hazards.push({ type: 'cannon', side, x: side < 0 ? 0 : W, y: -30 * S, vm: 1, shots: 0, charge: -1, cool: .25 });
+  },
+  laser() {
+    if (count('laser') >= 1) return PATTERNS.spike(0.5);
+    const horiz = Math.random() < .55;
+    hazards.push({ type: 'laser', o: horiz ? 'h' : 'v', p: horiz ? clamp(player.y + rand(-50, 50) * S, H * .3, H - 30 * S) : clamp(player.x + rand(-50, 50) * S, 24, W - 24), warn: 1.2, fire: .5, beep: 0 });
+  },
+};
+function spawnPattern(diff) {
+  const opts = [['spike', 3]];
+  if (t > 6) opts.push(['block', 1]);
+  if (t > 8) opts.push(['wall', 1.1]);
+  if (t > 14) opts.push(['chaser', .8]);
+  if (t > 18) opts.push(['wobble', .8]);
+  if (t > 20) opts.push(['spinner', .9]);
+  if (t > 25) opts.push(['saw', .9]);
+  if (t > 30) opts.push(['cannon', .8], ['triple', .7]);
+  if (t > 35) opts.push(['laser', .8]);
+  if (t > 40) opts.push(['mine', .8], ['pair', .7]);
+  if (t > 55) opts.push(['slidewall', .7]);
+  let sum = opts.reduce((a, o) => a + o[1], 0), r = Math.random() * sum;
+  for (const [k, w] of opts) { r -= w; if (r <= 0) return PATTERNS[k](diff); }
+  PATTERNS.spike(diff);
+}
+function spawnGems() {
+  if (Math.random() < .3) {
+    const n = 5, cx = rand(W * .2, W * .8), amp = rand(30, 70) * S;
+    for (let i = 0; i < n; i++) gems.push({ x: clamp(cx + Math.sin(i * .9) * amp, 16, W - 16), y: -20 - i * 30 * S, ph: rand(0, TAU) });
+  } else gems.push({ x: rand(20, W - 20), y: -20, ph: rand(0, TAU) });
+}
+function spawnPower() {
+  const keys = Object.keys(POWERS); let sum = keys.reduce((a, k) => a + POWERS[k].w, 0), r = Math.random() * sum, type = 'shield';
+  for (const k of keys) { r -= POWERS[k].w; if (r <= 0) { type = k; break; } }
+  powers.push({ type, x: rand(30, W - 30), y: -30, ph: 0 });
+}
+
+// ---------- Effects ----------
+function burst(x, y, color, n = 12, spd = 260, size = 6) {
+  for (let i = 0; i < n; i++) {
+    const a = rand(0, TAU), s = rand(.3, 1) * spd * S;
+    parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 60 * S, r: rand(.5, 1) * size * S, c: color, life: rand(.45, .8), max: .8 });
+  }
+}
+function pop(x, y, txt, color = C.paper, size = 22, life = .9, still) {
+  const half = Math.min(W / 2, String(txt).length * size * S * .3 + 8);
+  texts.push({ x: clamp(x, half, W - half), y, txt, c: color, size: size * S, life, max: life, still });
+}
+
+// ---------- Run control ----------
+function resetWorld(w) { world = w; prevWorld = w; worldBlend = 1; worldGems = 0; decor = []; addDecor(w, true); }
+function startRun() {
+  audioOn();
+  hazards = []; gems = []; powers = []; chests = []; parts = []; texts = [];
+  t = 0; dist = 0; bonus = 0; runCoins = 0; combo = 0; comboT = 0;
+  for (const k in fx) fx[k] = 0;
+  revived = false;
+  spawnT = 1.3; gemT = .6; powT = rand(8, 11); chestT = rand(22, 38); nextMile = 100; moved = 0; shake = 0;
+  resetWorld(0);
+  player.scale = 1;
+  player.x = player.tx = W / 2; player.y = player.ty = H * .76; player.vx = player.vy = 0; player.inv = 0;
+  mode = 'play'; paused = false;
+  show('menu', false); show('over', false); show('shop', false); show('pause', false);
+  show('hud', true); show('hint', true);
+  updateHud(true);
+}
+function nextWorld() {
+  prevWorld = world; world++; worldGems = 0; worldBlend = 0;
+  for (const d of decor) d.old = true;
+  addDecor(world, false);
+  bonus += 25 * mult();
+  const w = WD();
+  pop(W / 2, H * .36, 'World ' + (world + 1), C.gold, 58, 2.2, true);
+  pop(W / 2, H * .36 + 52 * S, w.name, C.paper, 30, 2.2, true);
+  spawnT = Math.max(spawnT, 1.8);
+  burst(W / 2, H * .38, C.gold, 24, 380, 7);
+  sfx.world(); buzz([20, 40, 20]);
+  if (world + 1 > bestWorld) { bestWorld = world + 1; store.set('bestWorld', bestWorld); }
+}
+function die() {
+  mode = 'dying'; deathT = .75;
+  burst(player.x, player.y, SKINS[skinIdx].body, 26, 380, 9);
+  burst(player.x, player.y, C.paper, 10, 260, 5);
+  shake = reduceMotion ? 0 : 16; sfx.die(); buzz([40, 30, 60]);
+  lastRunCoins = runCoins;
+  wallet += runCoins; runCoins = 0; store.set('coins', wallet);
+}
+function showOver() {
+  mode = 'over';
+  const s = score();
+  const isBest = s > best;
+  if (isBest) { best = s; store.set('best', best); }
+  $('ovScore').textContent = s; $('ovBest').textContent = best;
+  $('ovWorld').textContent = (world + 1) + ' · ' + WD().name;
+  $('newBest').hidden = !isBest;
+  $('ovCoins').textContent = lastRunCoins;
+  const rb = $('reviveBtn');
+  rb.hidden = revived; rb.disabled = wallet < REVIVE_COST;
+  show('hud', false); show('hint', false); show('over', true);
+}
+function revive() {
+  if (revived || wallet < REVIVE_COST) return;
+  // Play Store build: replace with a rewarded-ad callback (window.showRewardedAd hook).
+  wallet -= REVIVE_COST; store.set('coins', wallet);
+  revived = true;
+  hazards = hazards.filter(h => !DESTROYABLE.has(h.type) || h.y < -10);
+  hazards.forEach(h => { if (h.y > -10) h.ghost = true; });
+  player.inv = 2.5; mode = 'play';
+  show('over', false); show('hud', true);
+  pop(W / 2, H * .45, 'Back in!', C.mint, 34, 1.1); sfx.power();
+}
+window.showRewardedAd = window.showRewardedAd || null;
+
+function show(id, on) { $(id).hidden = !on; }
+function goMenu() {
+  mode = 'menu'; paused = false;
+  hazards = []; gems = []; powers = []; chests = [];
+  for (const k in fx) fx[k] = 0;
+  resetWorld(0);
+  player.scale = 1;
+  player.x = player.tx = W / 2; player.y = player.ty = H * .56;
+  show('over', false); show('pause', false); show('hud', false); show('hint', false); show('shop', false); show('menu', true);
+  refreshMenu();
+}
+function refreshMenu() {
+  $('menuBest').textContent = 'Best ' + best + ' · World ' + bestWorld;
+  $('menuCoins').textContent = wallet;
+  $('muteBtn').innerHTML = muted
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M17 9l5 6M22 9l-5 6"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19.5 5.5a9 9 0 0 1 0 13"/></svg>';
+  $('muteBtn').setAttribute('aria-label', muted ? 'Sound off' : 'Sound on');
+}
+function setPause(on) { if (mode !== 'play') return; paused = on; show('pause', on); }
+
+// ---------- HUD ----------
+let lastHudScore = -1, lastHudCoins = -1, hudTick = 0, lastW = -1, lastWG = -1;
+function updateHud(force) {
+  const s = score();
+  if (force || s !== lastHudScore) { $('hudScore').textContent = s; lastHudScore = s; }
+  const c = wallet + runCoins;
+  if (force || c !== lastHudCoins) { $('hudCoins').textContent = c; lastHudCoins = c; }
+  if (force || world !== lastW || worldGems !== lastWG) {
+    $('wName').textContent = 'World ' + (world + 1);
+    $('wBar').style.width = Math.min(100, worldGems / GEMS_PER_WORLD * 100) + '%';
+    lastW = world; lastWG = worldGems;
+  }
+  hudTick -= 1;
+  if (force || hudTick <= 0) {
+    hudTick = 6;
+    let h = '';
+    const names = { shield: 'Shield', magnet: 'Magnet', slow: 'Slow', tiny: 'Tiny', double: '2x' };
+    for (const k in fx) if (fx[k] > 0) h += '<span class="chip ' + k + (fx[k] < 3 && Math.floor(time * 4) % 2 ? ' warn' : '') + '">' + names[k] + ' ' + Math.ceil(fx[k]) + 's</span>';
+    if (combo > 1) h += '<span class="chip combo">Combo x' + combo + '</span>';
+    $('chips').innerHTML = h;
+  }
+}
+
+// ---------- Input ----------
+let drag = null;
+cvs.addEventListener('pointerdown', e => {
+  if (mode !== 'play' || paused) return;
+  try { cvs.setPointerCapture(e.pointerId); } catch (_) {}
+  drag = { id: e.pointerId, px: e.clientX, py: e.clientY, ox: player.tx, oy: player.ty };
+});
+cvs.addEventListener('pointermove', e => {
+  if (!drag || e.pointerId !== drag.id) return;
+  const nx = drag.ox + (e.clientX - drag.px) * 1.2;
+  const ny = drag.oy + (e.clientY - drag.py) * 1.2;
+  moved += Math.abs(nx - player.tx) + Math.abs(ny - player.ty);
+  player.tx = nx; player.ty = ny; clampTarget();
+  if (player.tx !== nx) { drag.ox = player.tx; drag.px = e.clientX; }
+  if (player.ty !== ny) { drag.oy = player.ty; drag.py = e.clientY; }
+});
+const endDrag = e => { if (drag && e.pointerId === drag.id) drag = null; };
+cvs.addEventListener('pointerup', endDrag);
+cvs.addEventListener('pointercancel', endDrag);
+const keys = {};
+addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if ((e.key === ' ' || e.key === 'Enter') && (mode === 'menu' || mode === 'over') && $('shop').hidden) { e.preventDefault(); startRun(); }
+  if (e.key === 'Escape' || e.key === 'p') { if (mode === 'play') setPause(!paused); }
+});
+addEventListener('keyup', e => { keys[e.key] = false; });
+document.addEventListener('visibilitychange', () => { if (document.hidden) setPause(true); });
+addEventListener('resize', resize);
+
+// ---------- Geometry ----------
+function circleRect(cx, cy, r, rx, ry, rw, rh) {
+  const nx = clamp(cx, rx, rx + rw), ny = clamp(cy, ry, ry + rh);
+  const dx = cx - nx, dy = cy - ny;
+  return dx * dx + dy * dy < r * r;
+}
+function segDist(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy || 1;
+  const u = clamp(((px - ax) * dx + (py - ay) * dy) / l2, 0, 1);
+  return Math.hypot(px - (ax + u * dx), py - (ay + u * dy));
+}
+
+// ---------- Hits ----------
+function hit(h) {
+  if (h.ghost || h.dead) return;
+  if (fx.shield > 0) {
+    if (DESTROYABLE.has(h.type)) {
+      h.dead = true;
+      const hx = h.x != null ? h.x : player.x, hy = h.y != null ? h.y : player.y;
+      if (h.type !== 'laser') { burst(hx, hy, WD().spike2, 14, 300, 6); bonus += 3 * mult(); pop(hx, hy - 24 * S, 'Smash! +' + 3 * mult(), '#9fd8ff', 22, .7); sfx.smash(); buzz(15); }
+      shake = reduceMotion ? 0 : Math.max(shake, 5);
+    } else h.ghost = true;
+    return;
+  }
+  if (player.inv > 0) return;
+  die();
+}
+function blastAll() {
+  let n = 0;
+  for (const h of hazards) {
+    const onScreen = (h.y == null || (h.y > -40 && h.y < H + 40));
+    if (!onScreen) continue;
+    if (DESTROYABLE.has(h.type)) { h.dead = true; n++; if (h.x != null) burst(h.x, h.y, WD().spike2, 10, 320, 6); }
+    else if (h.type !== 'cannon') h.ghost = true;
+  }
+  bonus += n * 2 * mult();
+  shake = reduceMotion ? 0 : 12;
+  parts.push({ ring: true, x: player.x, y: player.y, r: 10, life: .5, max: .5 });
+  if (n) pop(W / 2, H * .45, 'Cleared ' + n + '!', '#ffb36b', 30, 1);
+  sfx.boom();
+}
+
+// ---------- Update ----------
+function update(dt) {
+  time += dt;
+  if (paused) return;
+  let ts = 1;
+  if (mode === 'dying') { ts = .22; deathT -= dt; if (deathT <= 0) showOver(); }
+  if (mode === 'play' && fx.slow > 0) ts = .55;
+  const dtw = dt * ts;
+  const playing = mode === 'play';
+  const active = playing || mode === 'dying';
+  if (worldBlend < 1) worldBlend = Math.min(1, worldBlend + dt / 1.6);
+
+  if (playing) {
+    t += dtw;
+    const diff = Math.min(1, t / 100);
+    speed = H * (.34 + .38 * diff + Math.max(0, t - 100) * .0015);
+    dist += speed * dtw;
+    spawnT -= dtw; if (spawnT <= 0) { spawnT = lerp(1.1, .5, diff) * rand(.8, 1.2); spawnPattern(diff); }
+    gemT -= dtw; if (gemT <= 0) { spawnGems(); gemT = rand(.75, 1.3); }
+    powT -= dtw; if (powT <= 0) { spawnPower(); powT = rand(10, 15); }
+    chestT -= dtw; if (chestT <= 0) { chests.push({ x: rand(40, W - 40), y: -30 * S, ph: 0 }); chestT = rand(30, 55); }
+    for (const k in fx) if (fx[k] > 0) fx[k] = Math.max(0, fx[k] - dt);
+    if (comboT > 0) { comboT -= dt; if (comboT <= 0) combo = 0; }
+    if (player.inv > 0) player.inv -= dt;
+
+    const kx = (keys.ArrowRight || keys.d ? 1 : 0) - (keys.ArrowLeft || keys.a ? 1 : 0);
+    const ky = (keys.ArrowDown || keys.s ? 1 : 0) - (keys.ArrowUp || keys.w ? 1 : 0);
+    if (kx || ky) { player.tx += kx * 540 * S * dt; player.ty += ky * 540 * S * dt; moved += 10; }
+    clampTarget();
+    if (moved > 40 && !$('hint').hidden) show('hint', false);
+
+    const s = score();
+    if (s >= nextMile) { pop(W / 2, H * .55, nextMile + '!', C.gold, 50, 1.1); sfx.mile(); nextMile += 100; }
+  } else if (mode === 'menu') {
+    speed = H * .16;
+    spawnT -= dt;
+    if (spawnT <= 0) { const r = rand(12, 30) * S; let x = rand(r, W - r); if (Math.abs(x - W / 2) < 80 * S) x = x < W / 2 ? x - 90 * S : x + 90 * S; addSpike(x, r, rand(.8, 1.2)); spawnT = rand(.9, 1.6); }
+    gemT -= dt; if (gemT <= 0) { gems.push({ x: rand(20, W - 20), y: -20, ph: rand(0, TAU) }); gemT = rand(.8, 1.5); }
+    player.tx = W / 2 + Math.sin(time * 1.3) * 40 * S; player.ty = H * .56 + Math.sin(time * 2.1) * 10 * S;
+  } else speed = H * .12;
+
+  // player
+  player.scale = lerp(player.scale, fx.tiny > 0 ? .58 : 1, Math.min(1, dt * 8));
+  const px = player.x, py = player.y;
+  const k = 1 - Math.exp(-(playing ? 26 : 6) * dt);
+  if (mode !== 'dying' && mode !== 'over') { player.x += (player.tx - player.x) * k; player.y += (player.ty - player.y) * k; }
+  if (dt > 0) { player.vx = lerp(player.vx, (player.x - px) / dt, .3); player.vy = lerp(player.vy, (player.y - py) / dt, .3); }
+  player.blink -= dt; if (player.blink < -3.2) player.blink = .12;
+
+  updateDecor(dtw, speed);
+
+  const pr = PR();
+  const P = player;
+  for (const h of hazards) {
+    switch (h.type) {
+      case 'spike': {
+        h.y += speed * h.vm * dtw; h.ang += h.spin * dtw;
+        if (h.wobA) { h.ph += h.wobF * dtw; h.x = clamp(h.bx + Math.sin(h.ph) * h.wobA, h.r, W - h.r); }
+        if (playing && !h.ghost) {
+          const d = Math.hypot(h.x - P.x, h.y - P.y);
+          if (d < pr * .8 + h.r * .82) hit(h);
+          else if (d < pr + h.r + 22 * S) h.near = true;
+          if (!h.done && h.y - h.r > P.y + pr) {
+            h.done = true;
+            if (h.near && P.inv <= 0 && fx.shield <= 0) { const b = (h.r > 40 * S ? 8 : 5) * mult(); bonus += b; pop(P.x, P.y - 34 * S, 'Close! +' + b, C.paper, 20, .7); sfx.close(); }
+          }
+        }
+        if (h.y > H + h.r + 40) h.dead = true;
+        break;
+      }
+      case 'chaser': {
+        h.life -= dtw; h.flap += dt * 20;
+        if (h.life > 0 && playing) {
+          const dx = P.x - h.x, dy = P.y - h.y, d = Math.hypot(dx, dy) || 1, f = Math.min(1, 2.3 * dtw);
+          h.vx += (dx / d * h.ms - h.vx) * f; h.vy += (dy / d * h.ms - h.vy) * f;
+        } else {
+          h.vy += 700 * S * dtw; h.vx *= Math.pow(.3, dtw);
+          if (!h.escaped && playing) { h.escaped = true; const b = 5 * mult(); bonus += b; pop(h.x, h.y - 24 * S, 'Escaped! +' + b, C.paper, 20, .8); }
+        }
+        h.x += h.vx * dtw; h.y += h.vy * dtw;
+        if (playing && !h.ghost && Math.hypot(h.x - P.x, h.y - P.y) < pr * .8 + h.r * .85) hit(h);
+        if (h.y > H + 60 || (h.life <= 0 && (h.x < -60 || h.x > W + 60))) h.dead = true;
+        break;
+      }
+      case 'ball': {
+        h.x += h.vx * dtw; h.y += speed * .2 * dtw; h.ang += h.vx * .01 * dtw;
+        if (playing && !h.ghost && Math.hypot(h.x - P.x, h.y - P.y) < pr * .8 + h.r * .85) hit(h);
+        if (h.x < -50 || h.x > W + 50 || h.y > H + 50) h.dead = true;
+        break;
+      }
+      case 'cannon': {
+        h.y += speed * dtw;
+        if (playing && !h.ghost && h.shots < 2 && h.y > H * .12 && h.y < H * .82) {
+          if (h.charge < 0) { h.cool -= dtw; if (h.cool <= 0) h.charge = .7; }
+          else {
+            h.charge -= dtw;
+            if (h.charge <= 0) {
+              h.charge = -1; h.shots++; h.cool = 1.1;
+              hazards.push({ type: 'ball', x: h.side < 0 ? 36 * S : W - 36 * S, y: h.y, vx: -h.side * H * .72, r: 14 * S, ang: 0 });
+              burst(h.side < 0 ? 40 * S : W - 40 * S, h.y, '#cfcfd8', 8, 200, 6); sfx.cannon(); shake = reduceMotion ? 0 : Math.max(shake, 4);
+            }
+          }
+        }
+        if (h.y > H + 60) h.dead = true;
+        break;
+      }
+      case 'laser': {
+        if (h.warn > 0) {
+          h.warn -= dtw; h.beep -= dtw;
+          if (h.beep <= 0) { sfx.laserWarn(); h.beep = h.warn > .5 ? .25 : .1; }
+          if (h.warn <= 0) { sfx.laser(); shake = reduceMotion ? 0 : Math.max(shake, 4); }
+        } else {
+          h.fire -= dtw;
+          const half = 9 * S;
+          if (playing && !h.ghost) {
+            const d = h.o === 'h' ? Math.abs(P.y - h.p) : Math.abs(P.x - h.p);
+            if (d < pr * .75 + half) hit(h);
+          }
+          if (h.fire <= 0) h.dead = true;
+        }
+        if (mode !== 'play' && mode !== 'dying') h.dead = true;
+        break;
+      }
+      case 'wall': {
+        h.y += speed * dtw;
+        if (h.slide) { h.ph += dtw * 1.6; h.gx = clamp(h.bgx + Math.sin(h.ph) * h.slide, 10, W - h.gw - 10); }
+        if (playing && !h.ghost) {
+          const r = pr * .82;
+          if (circleRect(P.x, P.y, r, -50, h.y, h.gx + 50, h.h) || circleRect(P.x, P.y, r, h.gx + h.gw, h.y, W - h.gx - h.gw + 50, h.h)) hit(h);
+        }
+        if (playing && !h.passed && h.y > P.y + pr) {
+          h.passed = true;
+          if (!h.ghost) { const b = 3 * mult(); bonus += b; pop(h.gx + h.gw / 2, h.y - 10, '+' + b, C.paper, 22, .6); sfx.wall(); }
+        }
+        if (h.y > H + 60) h.dead = true;
+        break;
+      }
+      case 'block': {
+        h.y += speed * dtw;
+        if (playing && !h.ghost && circleRect(P.x, P.y, pr * .82, h.x - h.s / 2 - 4 * S, h.y - h.s / 2 - 4 * S, h.s + 8 * S, h.s + 8 * S)) hit(h);
+        if (h.y - h.s > H) h.dead = true;
+        break;
+      }
+      case 'spinner': {
+        h.y += speed * dtw; h.a += h.w * dtw;
+        const cx = Math.cos(h.a) * h.L, cy = Math.sin(h.a) * h.L;
+        if (playing && !h.ghost) {
+          if (segDist(P.x, P.y, h.x - cx, h.y - cy, h.x + cx, h.y + cy) < pr * .8 + h.th / 2) hit(h);
+        }
+        if (h.y - h.L > H) h.dead = true;
+        break;
+      }
+      case 'saw': {
+        h.y += speed * dtw; h.ph += h.w * dtw; h.ang += 12 * dtw;
+        h.x = lerp(h.x1, h.x2, (Math.sin(h.ph) + 1) / 2);
+        if (playing && !h.ghost && Math.hypot(h.x - P.x, h.y - P.y) < pr * .8 + h.r * .85) hit(h);
+        if (h.y - h.r > H + 20) h.dead = true;
+        break;
+      }
+      case 'mine': {
+        h.y += speed * dtw; h.ph += dtw;
+        const d = Math.hypot(h.x - P.x, h.y - P.y);
+        if (h.st === 'idle') {
+          if (playing && d < 100 * S && !h.ghost) { h.st = 'arm'; h.tm = .65; h.bp = 0; }
+        } else if (h.st === 'arm') {
+          h.tm -= dtw; h.bp -= dtw; if (h.bp <= 0) { sfx.beep(); h.bp = .12; }
+          if (h.tm <= 0) {
+            h.st = 'boom'; h.tm = .3; sfx.boom(); burst(h.x, h.y, '#ffb36b', 22, 420, 8); burst(h.x, h.y, C.ink, 8, 300, 5);
+            shake = reduceMotion ? 0 : Math.max(shake, 9);
+            if (playing && !h.ghost && d < 78 * S + pr * .6) hit(h);
+          }
+        } else { h.tm -= dtw; if (h.tm <= 0) h.dead = true; }
+        if (playing && h.st !== 'boom' && !h.ghost && d < pr * .8 + h.r * .9) hit(h);
+        if (h.y > H + 60) h.dead = true;
+        break;
+      }
+    }
+  }
+  hazards = hazards.filter(h => !h.dead);
+
+  // gems
+  for (const g of gems) {
+    g.y += speed * dtw; g.ph += dt * 4;
+    if (playing && fx.magnet > 0) {
+      const dx = P.x - g.x, dy = P.y - g.y, d = Math.hypot(dx, dy);
+      if (d < 200 * S) { const pull = Math.min(1, 950 * S * dt / Math.max(d, 1)); g.x += dx * pull; g.y += dy * pull; }
+    }
+    if (playing && Math.hypot(g.x - P.x, g.y - P.y) < pr + 12 * S) {
+      g.dead = true;
+      combo = comboT > 0 ? Math.min(combo + 1, 5) : 1; comboT = 1.6;
+      runCoins += mult(); const b = 2 * combo * mult(); bonus += b;
+      worldGems++;
+      burst(g.x, g.y, C.mint, 7, 180, 4);
+      pop(g.x, g.y - 14 * S, '+' + b + (combo > 1 ? ' x' + combo : ''), combo > 1 ? C.gold : C.paper, 18 + combo * 2, .6);
+      sfx.gem(combo); buzz(8);
+      if (worldGems >= GEMS_PER_WORLD) nextWorld();
+    }
+  }
+  gems = gems.filter(g => !g.dead && g.y < H + 40);
+
+  // chests
+  for (const c of chests) {
+    c.y += speed * .6 * dtw; c.ph += dt * 3;
+    if (playing && fx.magnet > 0) { const dx = P.x - c.x, dy = P.y - c.y, d = Math.hypot(dx, dy); if (d < 200 * S) { const pull = Math.min(1, 700 * S * dt / Math.max(d, 1)); c.x += dx * pull; c.y += dy * pull; } }
+    if (playing && Math.hypot(c.x - P.x, c.y - P.y) < pr + 22 * S) {
+      c.dead = true;
+      const r = Math.random(), amt = (r < .5 ? 15 : r < .8 ? 25 : r < .95 ? 40 : 75) * mult();
+      runCoins += amt; bonus += 20 * mult();
+      burst(c.x, c.y, C.gold, 26, 420, 7); burst(c.x, c.y, C.paper, 10, 300, 4);
+      pop(c.x, c.y - 30 * S, 'Treasure! +' + amt, C.gold, 32, 1.4);
+      sfx.chest(); buzz([20, 30, 20]);
+    }
+  }
+  chests = chests.filter(c => !c.dead && c.y < H + 50);
+
+  // power-ups
+  for (const p of powers) {
+    p.y += speed * .85 * dtw; p.ph += dt * 3;
+    if (playing && Math.hypot(p.x - P.x, p.y - P.y) < pr + 18 * S) {
+      p.dead = true;
+      if (p.type === 'blast') blastAll(); else fx[p.type] = DUR[p.type];
+      pop(p.x, p.y - 20 * S, POWERS[p.type].label, POWERS[p.type].col, 28);
+      burst(p.x, p.y, C.paper, 14, 260, 5); sfx.power(); buzz(20);
+    }
+  }
+  powers = powers.filter(p => !p.dead && p.y < H + 50);
+
+  for (const q of parts) {
+    if (q.ring) { q.r += 900 * S * dt; q.life -= dt; continue; }
+    q.vy += 700 * S * dt; q.x += q.vx * dt; q.y += q.vy * dt; q.life -= dt;
+  }
+  parts = parts.filter(q => q.life > 0);
+  for (const x of texts) { if (!x.still) x.y -= 50 * S * dt; x.life -= dt; }
+  texts = texts.filter(x => x.life > 0);
+  shake *= Math.pow(.02, dt);
+
+  if (active) updateHud(false);
+}
+
+// ---------- Drawing ----------
+function rrect(x, y, w, h, r) {
+  r = Math.max(0, Math.min(r, w / 2, h / 2));
+  ctx.beginPath(); ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function outline(w = 3) { ctx.lineWidth = w; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.strokeStyle = C.ink; ctx.stroke(); }
+
+function drawBackground() {
+  ctx.fillStyle = grads[prevWorld % WORLDS.length]; ctx.fillRect(0, 0, W, H);
+  if (worldBlend < 1 || prevWorld !== world) {
+    ctx.globalAlpha = worldBlend; ctx.fillStyle = grads[world % WORLDS.length]; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
+    if (worldBlend >= 1) prevWorld = world;
+  }
+}
+
+function eyes(r, angry, tx, ty, ox = 0) {
+  const lx = clamp(tx, -1, 1) * r * .07, ly = clamp(ty, -1, 1) * r * .07;
+  for (const s of [-1, 1]) {
+    ctx.beginPath(); ctx.ellipse(s * r * .27 + ox, r * .02, r * .19, r * .22, 0, 0, TAU); ctx.fillStyle = C.paper; ctx.fill();
+    ctx.beginPath(); ctx.arc(s * r * .27 + lx + ox, r * .05 + ly, r * .1, 0, TAU); ctx.fillStyle = C.ink; ctx.fill();
+    if (angry) { ctx.beginPath(); ctx.moveTo(s * r * .5 + ox, -r * .3); ctx.lineTo(s * r * .1 + ox, -r * .16); ctx.lineWidth = Math.max(2, r * .1); ctx.lineCap = 'round'; ctx.strokeStyle = C.ink; ctx.stroke(); }
+  }
+}
+
+function drawSpike(h) {
+  const r = h.r, w = WD();
+  ctx.save(); if (h.ghost) ctx.globalAlpha = .3;
+  ctx.translate(h.x, h.y); ctx.rotate(h.ang);
+  const n = r > 40 * S ? 14 : 9;
+  ctx.beginPath();
+  for (let i = 0; i < n * 2; i++) { const rr = i % 2 ? r * .76 : r * 1.12, a = i / (n * 2) * TAU; ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+  ctx.closePath(); ctx.fillStyle = w.spike; ctx.fill(); outline(r > 40 * S ? 4 : 3);
+  ctx.beginPath(); ctx.arc(0, 0, r * .66, 0, TAU); ctx.fillStyle = w.spike2; ctx.fill();
+  ctx.rotate(-h.ang);
+  eyes(r, true, (player.x - h.x) / 200, (player.y - h.y) / 200);
+  if (r > 40 * S) { // big ones get teeth
+    ctx.beginPath(); ctx.moveTo(-r * .3, r * .32); for (let i = 0; i <= 6; i++) ctx.lineTo(-r * .3 + i * r * .1, r * .32 + (i % 2 ? r * .12 : 0)); ctx.fillStyle = C.paper; ctx.fill(); outline(2);
+  }
+  ctx.restore();
+}
+
+function drawChaser(h) {
+  const r = h.r;
+  ctx.save(); if (h.ghost) ctx.globalAlpha = .3;
+  ctx.translate(h.x, h.y);
+  // trail
+  ctx.globalAlpha *= .35; ctx.beginPath(); ctx.arc(-h.vx * .04, -h.vy * .04, r * .8, 0, TAU); ctx.fillStyle = C.pop; ctx.fill(); ctx.globalAlpha = h.ghost ? .3 : 1;
+  // wings
+  const f = Math.sin(h.flap) * .5;
+  for (const s of [-1, 1]) {
+    ctx.save(); ctx.scale(s, 1); ctx.rotate(-.3 + f);
+    ctx.beginPath(); ctx.moveTo(r * .6, -r * .1); ctx.quadraticCurveTo(r * 1.6, -r * 1.1, r * 1.8, -r * .2); ctx.quadraticCurveTo(r * 1.3, -r * .1, r * .6, r * .3); ctx.closePath();
+    ctx.fillStyle = C.paper; ctx.fill(); outline(2.5); ctx.restore();
+  }
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fillStyle = '#e8364f'; ctx.fill(); outline(3);
+  ctx.beginPath(); ctx.arc(-r * .35, -r * .4, r * .2, 0, TAU); ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fill();
+  eyes(r * 1.1, true, (player.x - h.x) / 120, (player.y - h.y) / 120);
+  // chase timer ring
+  if (h.life > 0) { ctx.beginPath(); ctx.arc(0, 0, r + 6 * S, -Math.PI / 2, -Math.PI / 2 + TAU * clamp(h.life / 5.5, 0, 1)); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(232,54,79,.7)'; ctx.stroke(); }
+  ctx.restore();
+}
+
+function drawBall(h) {
+  ctx.save(); if (h.ghost) ctx.globalAlpha = .3;
+  ctx.translate(h.x, h.y);
+  ctx.globalAlpha *= .3; ctx.fillStyle = C.steel; ctx.beginPath(); ctx.arc(-Math.sign(h.vx) * h.r * 1.3, 0, h.r * .7, 0, TAU); ctx.arc(-Math.sign(h.vx) * h.r * 2.3, 0, h.r * .4, 0, TAU); ctx.fill(); ctx.globalAlpha = h.ghost ? .3 : 1;
+  ctx.beginPath(); ctx.arc(0, 0, h.r, 0, TAU); ctx.fillStyle = '#26262f'; ctx.fill(); outline(3);
+  ctx.beginPath(); ctx.arc(-h.r * .35, -h.r * .35, h.r * .28, 0, TAU); ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.fill();
+  ctx.restore();
+}
+
+function drawCannon(h) {
+  ctx.save(); ctx.translate(h.x, h.y); ctx.scale(-h.side, 1); // barrel points inward (+x)
+  const s = S;
+  if (h.charge >= 0) { // telegraph line
+    ctx.save(); ctx.setLineDash([10 * s, 10 * s]); ctx.lineDashOffset = -time * 80; ctx.globalAlpha = .5 + .4 * Math.sin(time * 30);
+    ctx.beginPath(); ctx.moveTo(40 * s, 0); ctx.lineTo(W, 0); ctx.lineWidth = 3; ctx.strokeStyle = C.pop; ctx.stroke(); ctx.restore();
+  }
+  rrect(-8 * s, -15 * s, 52 * s, 30 * s, 10 * s); ctx.fillStyle = C.steel; ctx.fill(); outline(3);
+  rrect(36 * s, -18 * s, 12 * s, 36 * s, 5 * s); ctx.fillStyle = C.steel2; ctx.fill(); outline(3);
+  ctx.beginPath(); ctx.arc(8 * s, 16 * s, 11 * s, 0, TAU); ctx.fillStyle = '#8a5a2b'; ctx.fill(); outline(3);
+  ctx.beginPath(); ctx.arc(8 * s, 16 * s, 3 * s, 0, TAU); ctx.fillStyle = C.ink; ctx.fill();
+  if (h.charge >= 0) { ctx.beginPath(); ctx.arc(48 * s, 0, (6 + (1 - h.charge / .7) * 8) * s, 0, TAU); ctx.fillStyle = 'rgba(255,90,122,.7)'; ctx.fill(); }
+  ctx.restore();
+}
+
+function drawLaser(h) {
+  const horiz = h.o === 'h', len = horiz ? W : H;
+  ctx.save();
+  if (horiz) ctx.translate(0, h.p); else { ctx.translate(h.p, 0); ctx.rotate(Math.PI / 2); }
+  const firing = h.warn <= 0;
+  if (!firing) {
+    ctx.setLineDash([8 * S, 8 * S]); ctx.globalAlpha = .35 + .5 * Math.abs(Math.sin(time * (h.warn < .5 ? 30 : 14)));
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(len, 0); ctx.lineWidth = 2.5; ctx.strokeStyle = '#ff2a4f'; ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+  } else if (!h.ghost) {
+    const a = clamp(h.fire / .5, 0, 1);
+    ctx.globalAlpha = .4 * a; ctx.fillStyle = '#ff2a4f'; ctx.fillRect(0, -18 * S, len, 36 * S);
+    ctx.globalAlpha = 1; ctx.fillStyle = '#ff2a4f'; ctx.fillRect(0, -9 * S, len, 18 * S);
+    ctx.fillStyle = '#fff2f4'; ctx.fillRect(0, -3.5 * S, len, 7 * S);
+  }
+  // emitters
+  for (const ex of [0, len]) {
+    ctx.save(); ctx.translate(ex, 0);
+    rrect(-10 * S, -13 * S, 20 * S, 26 * S, 6 * S); ctx.fillStyle = C.steel; ctx.fill(); outline(3);
+    ctx.beginPath(); ctx.arc(0, 0, 5 * S, 0, TAU); ctx.fillStyle = '#ff2a4f'; ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function drawWall(w) {
+  const wd = WD();
+  ctx.save(); if (w.ghost) ctx.globalAlpha = .25;
+  const segs = [[-20, w.gx + 20], [w.gx + w.gw, W - w.gx - w.gw + 20]];
+  for (const [x, ww] of segs) {
+    if (ww <= 20) continue;
+    rrect(x, w.y, ww, w.h, w.h / 2); ctx.fillStyle = wd.wall; ctx.fill();
+    ctx.save(); ctx.clip(); ctx.fillStyle = wd.stripe;
+    const step = 22 * S, off = (time * 40) % step;
+    for (let sx = x - w.h - step + off; sx < x + ww + w.h; sx += step) { ctx.beginPath(); ctx.moveTo(sx, w.y + w.h); ctx.lineTo(sx + 9 * S, w.y + w.h); ctx.lineTo(sx + 9 * S + w.h, w.y); ctx.lineTo(sx + w.h, w.y); ctx.closePath(); ctx.fill(); }
+    ctx.restore();
+    rrect(x, w.y, ww, w.h, w.h / 2); outline(3);
+  }
+  ctx.restore();
+}
+
+function drawBlock(b) {
+  const wd = WD(), s = b.s, hs = s / 2;
+  ctx.save(); if (b.ghost) ctx.globalAlpha = .25; ctx.translate(b.x, b.y);
+  // spikes on each side
+  const n = Math.max(2, Math.round(s / (16 * S))), sp = s / n, sh = 8 * S;
+  ctx.beginPath();
+  for (let side = 0; side < 4; side++) {
+    for (let i = 0; i < n; i++) {
+      const a = -hs + i * sp, m = a + sp / 2, e = a + sp;
+      const pts = [[a, -hs], [m, -hs - sh], [e, -hs]];
+      pts.forEach(([x, y], j) => { const rx = side === 0 ? x : side === 1 ? -y : side === 2 ? -x : y; const ry = side === 0 ? y : side === 1 ? x : side === 2 ? -y : -x; j === 0 ? ctx.moveTo(rx, ry) : ctx.lineTo(rx, ry); });
+      ctx.closePath();
+    }
+  }
+  ctx.fillStyle = '#d7d7e2'; ctx.fill(); outline(2.5);
+  rrect(-hs, -hs, s, s, 8 * S); ctx.fillStyle = wd.wall; ctx.fill(); outline(3);
+  rrect(-hs + 6 * S, -hs + 6 * S, s - 12 * S, s - 12 * S, 5 * S); ctx.fillStyle = wd.spike2; ctx.globalAlpha *= .45; ctx.fill(); ctx.globalAlpha = b.ghost ? .25 : 1;
+  // grumpy face
+  const r = s * .55;
+  for (const sx of [-1, 1]) { ctx.beginPath(); ctx.arc(sx * r * .32, -r * .05, r * .12, 0, TAU); ctx.fillStyle = C.paper; ctx.fill(); ctx.beginPath(); ctx.arc(sx * r * .32, -r * .02, r * .06, 0, TAU); ctx.fillStyle = C.ink; ctx.fill(); }
+  ctx.beginPath(); ctx.moveTo(-r * .2, r * .3); ctx.lineTo(r * .2, r * .3); outline(2.5);
+  ctx.restore();
+}
+
+function drawSpinner(h) {
+  const wd = WD();
+  ctx.save(); if (h.ghost) ctx.globalAlpha = .25; ctx.translate(h.x, h.y);
+  ctx.beginPath(); ctx.arc(0, 0, h.L, 0, TAU); ctx.setLineDash([4 * S, 9 * S]); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(43,29,58,.25)'; ctx.stroke(); ctx.setLineDash([]);
+  ctx.rotate(h.a);
+  rrect(-h.L, -h.th / 2, h.L * 2, h.th, h.th / 2); ctx.fillStyle = wd.wall; ctx.fill();
+  ctx.save(); ctx.clip(); ctx.fillStyle = wd.stripe; for (let x = -h.L; x < h.L; x += 20 * S) { ctx.beginPath(); ctx.moveTo(x, h.th / 2); ctx.lineTo(x + 8 * S, h.th / 2); ctx.lineTo(x + 8 * S + h.th, -h.th / 2); ctx.lineTo(x + h.th, -h.th / 2); ctx.fill(); } ctx.restore();
+  rrect(-h.L, -h.th / 2, h.L * 2, h.th, h.th / 2); outline(3);
+  for (const e of [-1, 1]) { ctx.beginPath(); ctx.arc(e * h.L, 0, h.th * .7, 0, TAU); ctx.fillStyle = wd.stripe; ctx.fill(); outline(3); }
+  ctx.beginPath(); ctx.arc(0, 0, 13 * S, 0, TAU); ctx.fillStyle = '#d7d7e2'; ctx.fill(); outline(3);
+  ctx.beginPath(); ctx.arc(0, 0, 4 * S, 0, TAU); ctx.fillStyle = C.ink; ctx.fill();
+  ctx.restore();
+}
+
+function drawSaw(h) {
+  ctx.save(); if (h.ghost) ctx.globalAlpha = .25;
+  rrect(h.x1 - 6 * S, h.y - 4 * S, h.x2 - h.x1 + 12 * S, 8 * S, 4 * S); ctx.fillStyle = C.steel; ctx.fill(); outline(2.5);
+  for (const ex of [h.x1, h.x2]) { ctx.beginPath(); ctx.arc(ex, h.y, 6 * S, 0, TAU); ctx.fillStyle = C.steel2; ctx.fill(); outline(2.5); }
+  ctx.translate(h.x, h.y); ctx.rotate(h.ang);
+  const n = 12; ctx.beginPath();
+  for (let i = 0; i < n; i++) { const a = i / n * TAU, a2 = (i + .6) / n * TAU; ctx.lineTo(Math.cos(a) * h.r * .78, Math.sin(a) * h.r * .78); ctx.lineTo(Math.cos(a2) * h.r * 1.08, Math.sin(a2) * h.r * 1.08); }
+  ctx.closePath(); ctx.fillStyle = '#d7d7e2'; ctx.fill(); outline(2.5);
+  ctx.beginPath(); ctx.arc(0, 0, h.r * .45, 0, TAU); ctx.fillStyle = C.pop; ctx.fill(); outline(2.5);
+  ctx.beginPath(); ctx.arc(0, 0, h.r * .14, 0, TAU); ctx.fillStyle = C.ink; ctx.fill();
+  ctx.restore();
+}
+
+function drawMine(h) {
+  ctx.save(); if (h.ghost) ctx.globalAlpha = .25; ctx.translate(h.x, h.y);
+  if (h.st === 'boom') {
+    const a = clamp(h.tm / .3, 0, 1);
+    ctx.globalAlpha = a; ctx.beginPath(); ctx.arc(0, 0, 78 * S * (1.2 - a * .4), 0, TAU); ctx.fillStyle = '#ffb36b'; ctx.fill(); ctx.beginPath(); ctx.arc(0, 0, 50 * S * (1.2 - a * .4), 0, TAU); ctx.fillStyle = '#fff2c4'; ctx.fill();
+    ctx.restore(); return;
+  }
+  if (h.st === 'arm') { ctx.beginPath(); ctx.arc(0, 0, 78 * S, 0, TAU); ctx.fillStyle = 'rgba(255,42,79,.14)'; ctx.fill(); ctx.setLineDash([6 * S, 6 * S]); ctx.lineWidth = 2.5; ctx.strokeStyle = 'rgba(255,42,79,.7)'; ctx.stroke(); ctx.setLineDash([]); }
+  const r = h.r;
+  for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; ctx.beginPath(); ctx.moveTo(Math.cos(a) * r * .8, Math.sin(a) * r * .8); ctx.lineTo(Math.cos(a) * r * 1.35, Math.sin(a) * r * 1.35); ctx.lineWidth = 5 * S; ctx.lineCap = 'round'; ctx.strokeStyle = C.ink; ctx.stroke(); }
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fillStyle = '#2f2f3d'; ctx.fill(); outline(3);
+  const on = h.st === 'arm' ? Math.floor(time * 16) % 2 : Math.floor(h.ph * 2) % 2;
+  ctx.beginPath(); ctx.arc(0, -r * .1, r * .32, 0, TAU); ctx.fillStyle = on ? '#ff2a4f' : '#6b2333'; ctx.fill();
+  ctx.beginPath(); ctx.arc(-r * .4, -r * .45, r * .15, 0, TAU); ctx.fillStyle = 'rgba(255,255,255,.4)'; ctx.fill();
+  ctx.restore();
+}
+
+function drawGem(g) {
+  const s = 11 * S, bob = Math.sin(g.ph) * 2 * S;
+  ctx.save(); ctx.translate(g.x, g.y + bob);
+  ctx.beginPath(); ctx.moveTo(0, -s * 1.15); ctx.lineTo(s, 0); ctx.lineTo(0, s * 1.15); ctx.lineTo(-s, 0); ctx.closePath();
+  ctx.fillStyle = C.mint; ctx.fill(); outline(2.5);
+  ctx.beginPath(); ctx.moveTo(0, -s * 1.15); ctx.lineTo(s, 0); ctx.lineTo(0, 0); ctx.closePath(); ctx.fillStyle = C.mint2; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-s * .45, -s * .15); ctx.lineTo(-s * .1, -s * .6); ctx.lineWidth = 2; ctx.strokeStyle = C.paper; ctx.lineCap = 'round'; ctx.stroke();
+  ctx.restore();
+}
+
+function drawChest(c) {
+  const s = 20 * S, bob = Math.sin(c.ph) * 3 * S;
+  ctx.save(); ctx.translate(c.x, c.y + bob); ctx.rotate(Math.sin(c.ph * .7) * .08);
+  // glow + sparkles
+  ctx.beginPath(); ctx.arc(0, 0, s * (1.9 + Math.sin(c.ph * 2) * .15), 0, TAU); ctx.fillStyle = 'rgba(255,201,60,.3)'; ctx.fill();
+  for (let i = 0; i < 4; i++) {
+    const a = c.ph * .8 + i * TAU / 4, rr = s * 1.7;
+    ctx.save(); ctx.translate(Math.cos(a) * rr, Math.sin(a) * rr); ctx.rotate(a);
+    ctx.beginPath(); ctx.moveTo(0, -5 * S); ctx.lineTo(1.5 * S, 0); ctx.lineTo(0, 5 * S); ctx.lineTo(-1.5 * S, 0); ctx.closePath(); ctx.fillStyle = C.paper; ctx.fill(); ctx.restore();
+  }
+  rrect(-s, -s * .25, s * 2, s * 1.15, 4 * S); ctx.fillStyle = '#b8692f'; ctx.fill(); outline(3);
+  rrect(-s, -s * .9, s * 2, s * .7, s * .35); ctx.fillStyle = '#da8a3e'; ctx.fill(); outline(3);
+  ctx.fillStyle = C.gold;
+  for (const bx of [-s * .62, s * .48]) { ctx.fillRect(bx, -s * .88, s * .14, s * 1.76); }
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 2;
+  for (const bx of [-s * .62, s * .48]) ctx.strokeRect(bx, -s * .88, s * .14, s * 1.76);
+  rrect(-s * .2, -s * .4, s * .4, s * .42, 3 * S); ctx.fillStyle = C.gold; ctx.fill(); outline(2.5);
+  ctx.beginPath(); ctx.arc(0, -s * .2, s * .07, 0, TAU); ctx.fillStyle = C.ink; ctx.fill();
+  ctx.restore();
+}
+
+function drawPower(p) {
+  const r = 17 * S, bob = Math.sin(p.ph) * 3 * S, col = POWERS[p.type].col;
+  ctx.save(); ctx.translate(p.x, p.y + bob);
+  ctx.beginPath(); ctx.arc(0, 0, r * (1.28 + Math.sin(p.ph * 2) * .08), 0, TAU); ctx.fillStyle = 'rgba(255,250,242,.4)'; ctx.fill();
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fillStyle = col; ctx.fill(); outline(3);
+  ctx.strokeStyle = C.ink; ctx.fillStyle = C.ink; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  switch (p.type) {
+    case 'shield':
+      ctx.beginPath(); ctx.moveTo(0, -r * .55); ctx.lineTo(r * .45, -r * .35); ctx.lineTo(r * .4, r * .1); ctx.quadraticCurveTo(r * .25, r * .45, 0, r * .6); ctx.quadraticCurveTo(-r * .25, r * .45, -r * .4, r * .1); ctx.lineTo(-r * .45, -r * .35); ctx.closePath();
+      ctx.fillStyle = C.paper; ctx.fill(); ctx.stroke(); break;
+    case 'magnet':
+      ctx.lineWidth = 6 * S; ctx.beginPath(); ctx.arc(0, -r * .02, r * .38, Math.PI, 0); ctx.lineTo(r * .38, r * .45); ctx.moveTo(-r * .38, -r * .02); ctx.lineTo(-r * .38, r * .45); ctx.stroke();
+      ctx.strokeStyle = C.paper; ctx.beginPath(); ctx.moveTo(-r * .38, r * .3); ctx.lineTo(-r * .38, r * .45); ctx.moveTo(r * .38, r * .3); ctx.lineTo(r * .38, r * .45); ctx.stroke(); break;
+    case 'slow':
+      ctx.beginPath(); ctx.arc(0, 0, r * .5, 0, TAU); ctx.fillStyle = C.paper; ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -r * .32); ctx.moveTo(0, 0); ctx.lineTo(r * .22, r * .1); ctx.stroke(); break;
+    case 'tiny':
+      ctx.beginPath(); ctx.arc(0, 0, r * .18, 0, TAU); ctx.fill();
+      for (let i = 0; i < 4; i++) { ctx.save(); ctx.rotate(i * Math.PI / 2 + Math.PI / 4); ctx.beginPath(); ctx.moveTo(r * .62, 0); ctx.lineTo(r * .34, 0); ctx.moveTo(r * .44, -r * .1); ctx.lineTo(r * .34, 0); ctx.lineTo(r * .44, r * .1); ctx.lineWidth = 2.5; ctx.stroke(); ctx.restore(); }
+      break;
+    case 'double':
+      ctx.font = (r * 1.05) + 'px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 4; ctx.strokeStyle = C.ink; ctx.strokeText('x2', 0, r * .06); ctx.fillStyle = C.paper; ctx.fillText('x2', 0, r * .06); break;
+    case 'blast':
+      ctx.beginPath(); for (let i = 0; i < 16; i++) { const a = i / 16 * TAU, rr = i % 2 ? r * .3 : r * .66; ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } ctx.closePath();
+      ctx.fillStyle = C.gold; ctx.fill(); ctx.lineWidth = 2.5; ctx.stroke(); break;
+  }
+  ctx.restore();
+}
+
+// Blob body path, shared by fill, clip and outline so they line up exactly.
+function blobPath(g, r, tm) {
+  g.beginPath();
+  for (let i = 0; i <= 28; i++) {
+    const a = i / 28 * TAU, rr = r * (1 + .045 * Math.sin(a * 3 + tm * 4));
+    const x = Math.cos(a) * rr, y = Math.sin(a) * rr * (Math.sin(a) > 0 ? .94 : 1.02);
+    i ? g.lineTo(x, y) : g.moveTo(x, y);
+  }
+  g.closePath();
+}
+function drawBlob(g, cx, cy, r, skin, vx, vy, tm, blink) {
+  const sp = Math.min(1, Math.hypot(vx, vy) / (1100 * S));
+  const ang = Math.atan2(vy, vx || .0001);
+  g.save(); g.translate(cx, cy);
+  g.beginPath(); g.ellipse(0, r * 1.05, r * .8, r * .2, 0, 0, TAU); g.fillStyle = 'rgba(43,29,58,.12)'; g.fill();
+  g.rotate(ang); g.scale(1 + sp * .28, 1 - sp * .2); g.rotate(-ang);
+  const wob = Math.sin(tm * 6) * .035; g.scale(1 + wob, 1 - wob);
+  blobPath(g, r, tm);
+  g.fillStyle = skin.body; g.fill();
+  g.save(); g.clip();
+  g.beginPath(); g.arc(r * .35, r * .55, r * 1.05, 0, TAU); g.globalAlpha = .55; g.fillStyle = skin.shade; g.fill();
+  g.restore();
+  blobPath(g, r, tm);
+  g.lineWidth = 3; g.lineJoin = 'round'; g.strokeStyle = C.ink; g.stroke();
+  g.beginPath(); g.ellipse(-r * .45, -r * .5, r * .22, r * .13, -.6, 0, TAU); g.fillStyle = 'rgba(255,255,255,.75)'; g.fill();
+  const lx = clamp(vx / (900 * S), -1, 1) * r * .09, ly = clamp(vy / (900 * S), -1, 1) * r * .07;
+  for (const s of [-1, 1]) {
+    const ex = s * r * .32 + lx * .5, ey = -r * .12 + ly * .5;
+    if (blink > 0) {
+      g.beginPath(); g.moveTo(ex - r * .16, ey); g.quadraticCurveTo(ex, ey + r * .08, ex + r * .16, ey); g.lineWidth = 2.5; g.lineCap = 'round'; g.strokeStyle = C.ink; g.stroke();
+    } else {
+      g.beginPath(); g.ellipse(ex, ey, r * .2, r * .25, 0, 0, TAU); g.fillStyle = C.paper; g.fill(); g.lineWidth = 2; g.strokeStyle = C.ink; g.stroke();
+      g.beginPath(); g.arc(ex + lx, ey + ly + r * .03, r * .11, 0, TAU); g.fillStyle = C.ink; g.fill();
+      g.beginPath(); g.arc(ex + lx - r * .04, ey + ly - r * .02, r * .035, 0, TAU); g.fillStyle = C.paper; g.fill();
+    }
+  }
+  g.fillStyle = 'rgba(255,90,122,.35)';
+  g.beginPath(); g.ellipse(-r * .58, r * .2, r * .13, r * .08, 0, 0, TAU); g.ellipse(r * .58, r * .2, r * .13, r * .08, 0, 0, TAU); g.fill();
+  g.beginPath(); g.arc(lx * .5, r * .2, r * .13, .15 * Math.PI, .85 * Math.PI); g.lineWidth = 2.5; g.lineCap = 'round'; g.strokeStyle = C.ink; g.stroke();
+  drawAcc(g, r, skin.acc, tm);
+  g.restore();
+}
+function drawAcc(g, r, acc, tm) {
+  g.lineWidth = 2.5; g.strokeStyle = C.ink; g.lineJoin = 'round'; g.lineCap = 'round';
+  if (acc === 'bow') {
+    g.save(); g.translate(r * .45, -r * .82); g.rotate(.3); g.fillStyle = '#ff5a7a';
+    g.beginPath(); g.moveTo(0, 0); g.lineTo(-r * .4, -r * .22); g.lineTo(-r * .4, r * .22); g.closePath(); g.fill(); g.stroke();
+    g.beginPath(); g.moveTo(0, 0); g.lineTo(r * .4, -r * .22); g.lineTo(r * .4, r * .22); g.closePath(); g.fill(); g.stroke();
+    g.beginPath(); g.arc(0, 0, r * .1, 0, TAU); g.fill(); g.stroke(); g.restore();
+  } else if (acc === 'antenna') {
+    const sw = Math.sin(tm * 5) * r * .12;
+    g.beginPath(); g.moveTo(0, -r * .95); g.quadraticCurveTo(sw, -r * 1.3, sw * 1.4, -r * 1.55); g.stroke();
+    g.beginPath(); g.arc(sw * 1.4, -r * 1.6, r * .15, 0, TAU); g.fillStyle = '#ffc93c'; g.fill(); g.stroke();
+  } else if (acc === 'leaf') {
+    g.beginPath(); g.moveTo(0, -r * .95); g.lineTo(r * .05, -r * 1.15); g.stroke();
+    g.save(); g.translate(r * .05, -r * 1.12); g.rotate(-.5 + Math.sin(tm * 3) * .1);
+    g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(r * .3, -r * .35, r * .65, -r * .05); g.quadraticCurveTo(r * .3, r * .2, 0, 0); g.fillStyle = '#5fb52c'; g.fill(); g.stroke(); g.restore();
+  } else if (acc === 'horns') {
+    g.fillStyle = '#ff5a7a';
+    for (const s of [-1, 1]) { g.beginPath(); g.moveTo(s * r * .5, -r * .76); g.quadraticCurveTo(s * r * .78, -r * 1.05, s * r * .7, -r * 1.3); g.quadraticCurveTo(s * r * .5, -r * 1.0, s * r * .2, -r * .92); g.closePath(); g.fill(); g.stroke(); }
+  } else if (acc === 'crown') {
+    g.beginPath(); g.moveTo(-r * .48, -r * .86); g.lineTo(-r * .55, -r * 1.3); g.lineTo(-r * .25, -r * 1.05); g.lineTo(0, -r * 1.42); g.lineTo(r * .25, -r * 1.05); g.lineTo(r * .55, -r * 1.3); g.lineTo(r * .48, -r * .86); g.closePath();
+    g.fillStyle = '#ffc93c'; g.fill(); g.stroke();
+    g.beginPath(); g.arc(0, -r * 1.02, r * .08, 0, TAU); g.fillStyle = '#ff5a7a'; g.fill();
+  }
+}
+
+function drawPlayer() {
+  if (mode === 'dying' || mode === 'over') return;
+  const p = player, r = PR();
+  if (p.inv > 0 && Math.floor(time * 16) % 2 === 0 && fx.shield <= 0) ctx.globalAlpha = .45;
+  if (mode === 'play' && fx.magnet > 0) {
+    ctx.beginPath(); ctx.arc(p.x, p.y, r * 2.2 + Math.sin(time * 10) * 3, 0, TAU);
+    ctx.setLineDash([6 * S, 8 * S]); ctx.lineDashOffset = -time * 40; ctx.lineWidth = 2.5; ctx.strokeStyle = 'rgba(255,90,122,.7)'; ctx.stroke(); ctx.setLineDash([]);
+  }
+  if (mode === 'play' && fx.double > 0) {
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(time * 2);
+    for (let i = 0; i < 3; i++) { ctx.rotate(TAU / 3); ctx.beginPath(); ctx.arc(r * 1.6, 0, 3.5 * S, 0, TAU); ctx.fillStyle = '#c7b3ff'; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = C.ink; ctx.stroke(); }
+    ctx.restore();
+  }
+  drawBlob(ctx, p.x, p.y, r, SKINS[skinIdx], p.vx, p.vy, time, p.blink);
+  ctx.globalAlpha = 1;
+  if (fx.shield > 0 && mode === 'play') {
+    const fading = fx.shield < 3 && Math.floor(time * 8) % 2;
+    ctx.globalAlpha = fading ? .35 : 1;
+    ctx.beginPath(); ctx.arc(p.x, p.y, r * 1.6, 0, TAU);
+    ctx.fillStyle = 'rgba(159,216,255,.28)'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(43,29,58,.55)'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(p.x, p.y, r * 1.6 + 5 * S, -Math.PI / 2, -Math.PI / 2 + TAU * fx.shield / DUR.shield); ctx.lineWidth = 3; ctx.strokeStyle = '#4fb4ff'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(p.x - r * .55, p.y - r * .78, r * .22, 0, TAU); ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+}
+
+function draw() {
+  ctx.save();
+  if (shake > .3) ctx.translate(rand(-shake, shake), rand(-shake, shake));
+  drawBackground();
+  drawDecor();
+  if (fx.slow > 0 && mode === 'play') { ctx.fillStyle = 'rgba(200,255,160,.12)'; ctx.fillRect(0, 0, W, H); }
+  // stationary obstacles first, then lasers, then movers
+  for (const h of hazards) {
+    if (h.type === 'wall') drawWall(h); else if (h.type === 'block') drawBlock(h); else if (h.type === 'spinner') drawSpinner(h);
+    else if (h.type === 'saw') drawSaw(h); else if (h.type === 'mine') drawMine(h);
+  }
+  for (const g of gems) drawGem(g);
+  for (const c of chests) drawChest(c);
+  for (const p of powers) drawPower(p);
+  for (const h of hazards) if (h.type === 'laser') drawLaser(h);
+  for (const h of hazards) {
+    if (h.type === 'spike') drawSpike(h); else if (h.type === 'chaser') drawChaser(h);
+    else if (h.type === 'ball') drawBall(h); else if (h.type === 'cannon') drawCannon(h);
+  }
+  drawPlayer();
+  for (const q of parts) {
+    ctx.globalAlpha = clamp(q.life / q.max, 0, 1);
+    if (q.ring) { ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, TAU); ctx.lineWidth = 10 * S; ctx.strokeStyle = '#ffb36b'; ctx.stroke(); continue; }
+    ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, TAU); ctx.fillStyle = q.c; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = C.ink; ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+  for (const x of texts) {
+    const a = clamp(x.life / x.max, 0, 1), sc = x.still ? 1 + Math.max(0, a - .85) * 2 : 1 + (1 - a) * .15;
+    ctx.globalAlpha = Math.min(1, a * 2.5);
+    ctx.font = (x.size * sc) + 'px ' + FONT;
+    ctx.lineWidth = Math.max(4, x.size * .18); ctx.strokeStyle = C.ink; ctx.strokeText(x.txt, x.x, x.y);
+    ctx.fillStyle = x.c; ctx.fillText(x.txt, x.x, x.y);
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+// ---------- Shop ----------
+function buildShop() {
+  $('shopCoins').textContent = wallet;
+  const grid = $('shopGrid'); grid.innerHTML = '';
+  SKINS.forEach((sk, i) => {
+    const have = owned.includes(i);
+    const b = document.createElement('button');
+    b.className = 'skin' + (i === skinIdx ? ' on' : '') + (!have && wallet < sk.cost ? ' cant' : '');
+    b.id = 'skin-' + i;
+    const cv = document.createElement('canvas'); cv.width = 128; cv.height = 128;
+    const g = cv.getContext('2d'); g.scale(2, 2);
+    drawBlob(g, 32, 38, 18, sk, 0, 0, 0, 0);
+    if (!have) { g.fillStyle = 'rgba(243,236,255,.45)'; g.fillRect(0, 0, 64, 64); }
+    const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = sk.name;
+    const pr = document.createElement('div'); pr.className = 'pr';
+    pr.innerHTML = i === skinIdx ? 'Equipped' : have ? 'Use' : '<span class="coin"></span>' + sk.cost;
+    b.append(cv, nm, pr);
+    b.setAttribute('aria-label', sk.name + (have ? '' : ', costs ' + sk.cost + ' gems'));
+    b.addEventListener('click', () => {
+      audioOn();
+      if (have) { skinIdx = i; store.set('skin', i); sfx.tap(); }
+      else if (wallet >= sk.cost) { wallet -= sk.cost; owned.push(i); skinIdx = i; store.set('coins', wallet); store.set('owned', owned); store.set('skin', i); sfx.buy(); buzz(20); }
+      else { tone(200, .12, 'square', .06, 150); return; }
+      buildShop();
+    });
+    grid.append(b);
+  });
+}
+let shopReturn = 'menu';
+function openShop(from) { shopReturn = from; buildShop(); show('menu', false); show('over', false); show('shop', true); }
+function closeShop() {
+  show('shop', false);
+  if (shopReturn === 'over') { $('reviveBtn').disabled = wallet < REVIVE_COST; show('over', true); }
+  else goMenu();
+}
+
+// ---------- Buttons ----------
+const tapThen = fn => () => { audioOn(); sfx.tap(); fn(); };
+$('playBtn').addEventListener('click', tapThen(startRun));
+$('againBtn').addEventListener('click', tapThen(startRun));
+$('reviveBtn').addEventListener('click', tapThen(revive));
+$('shopBtn').addEventListener('click', tapThen(() => openShop('menu')));
+$('ovShopBtn').addEventListener('click', tapThen(() => openShop('over')));
+$('ovMenuBtn').addEventListener('click', tapThen(goMenu));
+$('shopBack').addEventListener('click', tapThen(closeShop));
+$('pauseBtn').addEventListener('click', tapThen(() => setPause(true)));
+$('resumeBtn').addEventListener('click', tapThen(() => setPause(false)));
+$('quitBtn').addEventListener('click', tapThen(() => { wallet += runCoins; runCoins = 0; store.set('coins', wallet); const s = score(); if (s > best) { best = s; store.set('best', best); } goMenu(); }));
+$('muteBtn').addEventListener('click', () => { muted = !muted; store.set('muted', muted); audioOn(); sfx.tap(); refreshMenu(); });
+
+// ---------- Boot ----------
+resize();
+goMenu();
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(.033, Math.max(0, (now - last) / 1000)); last = now;
+  update(dt); draw();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
